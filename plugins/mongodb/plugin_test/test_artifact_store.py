@@ -1,9 +1,9 @@
 from test.utils.database import artifact_store as artifact_store_utils
 
 import pytest
-
 from superduper import CFG
-from superduper.backends.mongodb.data_backend import MongoDataBackend
+
+from superduper_mongodb.data_backend import MongoDataBackend
 
 DATABASE_URL = CFG.artifact_store or CFG.data_backend or ""
 

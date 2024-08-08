@@ -4,36 +4,35 @@ import typing as t
 import click
 import mongomock
 import pymongo
-
 from superduper import CFG, logging
 from superduper.backends.base.data_backend import BaseDataBackend
 from superduper.backends.base.metadata import MetaDataStoreProxy
-from superduper.backends.ibis.field_types import FieldType
-from superduper.backends.mongodb.artifacts import MongoArtifactStore
-from superduper.backends.mongodb.metadata import MongoMetaDataStore
-from superduper.backends.mongodb.utils import get_avaliable_conn
 from superduper.base.enums import DBType
 from superduper.components.datatype import DataType
 from superduper.misc.colors import Colors
+
+from superduper_mongodb.artifacts import MongoArtifactStore
+from superduper_mongodb.metadata import MongoMetaDataStore
+from superduper_mongodb.utils import get_avaliable_conn
 
 from .query import MongoQuery
 
 
 def _connection_callback(uri, flavour):
-    flavour = uri.split(':')[0] if flavour is None else flavour
-    if flavour == 'mongodb':
-        name = uri.split('/')[-1]
+    flavour = uri.split(":")[0] if flavour is None else flavour
+    if flavour == "mongodb":
+        name = uri.split("/")[-1]
         conn = get_avaliable_conn(uri, serverSelectionTimeoutMS=5000)
 
-    elif flavour == 'atlas':
-        name = uri.split('/')[-1]
+    elif flavour == "atlas":
+        name = uri.split("/")[-1]
         conn = pymongo.MongoClient(
-            '/'.join(uri.split('/')[:-1]),
+            "/".join(uri.split("/")[:-1]),
             serverSelectionTimeoutMS=5000,
         )
 
-    elif flavour == 'mongomock':
-        name = uri.split('/')[-1]
+    elif flavour == "mongomock":
+        name = uri.split("/")[-1]
         conn = mongomock.MongoClient()
     else:
         raise NotImplementedError
@@ -50,7 +49,7 @@ class MongoDataBackend(BaseDataBackend):
 
     db_type = DBType.MONGODB
 
-    id_field = '_id'
+    id_field = "_id"
 
     def __init__(self, uri: str, flavour: t.Optional[str] = None):
         self.connection_callback = lambda: _connection_callback(uri, flavour)
@@ -81,7 +80,7 @@ class MongoDataBackend(BaseDataBackend):
 
     def url(self):
         """Return the data backend connection url."""
-        return self.conn.HOST + ':' + str(self.conn.PORT) + '/' + self.name
+        return self.conn.HOST + ":" + str(self.conn.PORT) + "/" + self.name
 
     @property
     def db(self):
@@ -101,9 +100,9 @@ class MongoDataBackend(BaseDataBackend):
                 FileSystemArtifactStore,
             )
 
-            os.makedirs(f'/tmp/{self.name}', exist_ok=True)
-            return FileSystemArtifactStore(f'/tmp/{self.name}')
-        return MongoArtifactStore(self.conn, f'_filesystem:{self.name}')
+            os.makedirs(f"/tmp/{self.name}", exist_ok=True)
+            return FileSystemArtifactStore(f"/tmp/{self.name}")
+        return MongoArtifactStore(self.conn, f"_filesystem:{self.name}")
 
     def drop_outputs(self):
         """Drop all outputs."""
@@ -128,12 +127,12 @@ class MongoDataBackend(BaseDataBackend):
         """
         if not force:
             if not click.confirm(
-                f'{Colors.RED}[!!!WARNING USE WITH CAUTION AS YOU '
-                f'WILL LOSE ALL DATA!!!]{Colors.RESET} '
-                'Are you sure you want to drop the data-backend? ',
+                f"{Colors.RED}[!!!WARNING USE WITH CAUTION AS YOU "
+                f"WILL LOSE ALL DATA!!!]{Colors.RESET} "
+                "Are you sure you want to drop the data-backend? ",
                 default=False,
             ):
-                logging.warn('Aborting...')
+                logging.warn("Aborting...")
         return self.db.client.drop_database(self.db.name)
 
     def get_table_or_collection(self, identifier):
@@ -155,7 +154,7 @@ class MongoDataBackend(BaseDataBackend):
     def create_output_dest(
         self,
         predict_id: str,
-        datatype: t.Union[None, DataType, FieldType],
+        datatype: t.Union[str, DataType],
         flatten: bool = False,
     ):
         """Create an output collection for a component.
@@ -177,7 +176,7 @@ class MongoDataBackend(BaseDataBackend):
         """
         return (
             self.db[table_or_collection].find_one(
-                {'_id': id, f'{key}._content.bytes': {'$exists': 1}}
+                {"_id": id, f"{key}._content.bytes": {"$exists": 1}}
             )
             is not None
         )
@@ -187,7 +186,7 @@ class MongoDataBackend(BaseDataBackend):
 
         :param predict_id: identifier of the prediction
         """
-        return self.db[f'{CFG.output_prefix}{predict_id}'].find_one() is not None
+        return self.db[f"{CFG.output_prefix}{predict_id}"].find_one() is not None
 
     def check_ready_ids(
         self,
@@ -217,13 +216,13 @@ class MongoDataBackend(BaseDataBackend):
         # Filter the ids by the output keys first
         for output_key in output_keys:
             filter: dict[str, t.Any] = {}
-            filter[output_key] = {'$exists': 1}
+            filter[output_key] = {"$exists": 1}
             if ready_ids is not None:
-                filter['_source'] = {'$in': ready_ids}
+                filter["_source"] = {"$in": ready_ids}
             ready_ids = list(
-                self.get_table_or_collection(output_key).find(filter, {'_source': 1})
+                self.get_table_or_collection(output_key).find(filter, {"_source": 1})
             )
-            ready_ids = [doc['_source'] for doc in ready_ids]
+            ready_ids = [doc["_source"] for doc in ready_ids]
             if not ready_ids:
                 return []
 
@@ -232,14 +231,14 @@ class MongoDataBackend(BaseDataBackend):
 
         base_keys = [key for key in keys if not is_output_key(key)]
         base_filter: dict[str, t.Any] = {}
-        base_filter.update({key: {'$exists': 1} for key in base_keys})
+        base_filter.update({key: {"$exists": 1} for key in base_keys})
         if ready_ids is not None:
-            base_filter['_id'] = {'$in': ready_ids}
+            base_filter["_id"] = {"$in": ready_ids}
 
         ready_ids = list(
-            self.get_table_or_collection(query.table).find(base_filter, {'_id': 1})
+            self.get_table_or_collection(query.table).find(base_filter, {"_id": 1})
         )
-        ready_ids = [doc['_id'] for doc in ready_ids]
+        ready_ids = [doc["_id"] for doc in ready_ids]
 
         if ids is not None:
             ready_ids = [id for id in ids if id in ready_ids]

@@ -2,12 +2,11 @@ import random
 
 import numpy as np
 import pytest
-
-from superduper.backends.mongodb import query as q
-from superduper.backends.mongodb.query import MongoQuery
 from superduper.base.document import Document
 from superduper.components.schema import Schema
 from superduper.ext.numpy.encoder import array
+
+from superduper_mongodb.query import MongoQuery
 
 
 @pytest.fixture
@@ -65,15 +64,15 @@ def test_mongo_schema(db, schema):
 
 
 def test_select_missing_outputs(db):
-    docs = list(db.execute(q.MongoQuery(table='documents').find({}, {'_id': 1})))
+    docs = list(db.execute(MongoQuery(table='documents').find({}, {'_id': 1})))
     ids = [r['_id'] for r in docs[: len(docs) // 2]]
     db.execute(
-        q.MongoQuery(table='documents').update_many(
+        MongoQuery(table='documents').update_many(
             {'_id': {'$in': ids}},
             Document({'$set': {'_outputs__x::test_model_output::0::0': 'test'}}),
         )
     )
-    select = q.MongoQuery(table='documents').find({}, {'_id': 1})
+    select = MongoQuery(table='documents').find({}, {'_id': 1})
     modified_select = select.select_ids_of_missing_outputs('x::test_model_output::0::0')
     out = list(db.execute(modified_select))
     assert len(out) == (len(docs) - len(ids))

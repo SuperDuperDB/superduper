@@ -6,12 +6,10 @@ from test.utils.setup.fake_data import (
 
 import numpy
 import pytest
-
 from superduper.backends.ibis.field_types import dtype
 from superduper.base.document import Document
 from superduper.components.schema import Schema
 from superduper.components.table import Table
-from superduper.ext.pillow.encoder import pil_image
 
 try:
     import torch
@@ -26,7 +24,6 @@ def test_serialize_table():
             'id': dtype('int64'),
             'health': dtype('int32'),
             'age': dtype('int32'),
-            'image': pil_image,
         },
     )
 

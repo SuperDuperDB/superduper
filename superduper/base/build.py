@@ -1,4 +1,5 @@
 import re
+import typing as t
 
 from prettytable import PrettyTable
 
@@ -6,32 +7,33 @@ import superduper as s
 from superduper import logging
 from superduper.backends.base.data_backend import DataBackendProxy
 from superduper.backends.base.metadata import MetaDataStoreProxy
+from superduper.base.config import Config
 from superduper.base.datalayer import Datalayer
 from superduper.misc.anonymize import anonymize_url
 from superduper.misc.plugins import load_plugin
 
 
 class _Loader:
+    not_supported = []
+
     @classmethod
     def create(cls, uri):
         """Helper method to create metadata backend."""
-        backend = None
-        flavour = None
         for pattern in cls.patterns:
             if re.match(pattern, uri) is not None:
-                backend, flavour = cls.patterns[pattern]
-                if (backend, flavour) in cls.not_supported:
+                plugin, flavour = cls.patterns[pattern]
+                if cls.not_supported and (plugin, flavour) in cls.not_supported:
                     raise ValueError(
-                        f"{backend} with flavour {flavour} not supported "
+                        f"{plugin} with flavour {flavour} not supported "
                         "to create metadata store."
                     )
-                impl = getattr(load_plugin(f'superduper_{backend}'), cls.impl)
+                impl = getattr(load_plugin(plugin), cls.impl)
                 return impl(uri, flavour=flavour)
-        raise ValueError(f"No support for uri: {uri}")
+        raise ValueError(f"{cls.__name__} No support for uri: {uri}")
 
 
 class _MetaDataLoader(_Loader):
-    impl = 'MetadataStore'
+    impl = 'MetaDataStore'
     patterns = {
         r'^mongodb:\/\/': ('mongodb', 'mongodb'),
         r'^mongodb\+srv:\/\/': ('mongodb', 'atlas'),
@@ -64,34 +66,33 @@ class _ArtifactStoreLoader(_Loader):
     impl = 'ArtifactStore'
     patterns = {
         r'^filesystem:\/\/': ('local', 'base'),
+        r'^mongomock:\/\/': ('local', 'base'),
         r'^mongodb\+srv:\/\/': ('mongodb', 'atlas'),
         r'^mongodb:\/\/': ('mongodb', 'base'),
     }
 
 
-def _build_artifact_store(uri, mapping):
-    return _ArtifactStoreLoader.create(uri, mapping)
+def _build_artifact_store(uri):
+    return _ArtifactStoreLoader.create(uri)
 
 
-def _build_databackend(uri, mapping):
-    return DataBackendProxy(_DataBackendLoader.create(uri, mapping))
+def _build_databackend(uri):
+    return DataBackendProxy(_DataBackendLoader.create(uri))
 
 
-def _build_metadata(uri, mapping):
-    db = MetaDataStoreProxy(_MetaDataLoader.create(uri, mapping))
+def _build_metadata(uri):
+    db = MetaDataStoreProxy(_MetaDataLoader.create(uri))
     return db
 
 
-# TODO why public unlike others
-def build_compute(cfg):
+def _build_compute(cfg):
     """
     Helper function to build compute backend.
 
     :param cfg: SuperDuper config.
     """
-    plugin = load_plugin(cfg.cluster.compute.backend)
-    queue_publisher = plugin.QueuePublisher(cfg.cluster.queue.uri)
-    return plugin.ComputeBackend(cfg.cluster.compute.uri, queue=queue_publisher)
+    from superduper.backends.local.compute import LocalComputeBackend
+    return LocalComputeBackend()
 
 
 def build_datalayer(cfg=None, **kwargs) -> Datalayer:
@@ -107,10 +108,11 @@ def build_datalayer(cfg=None, **kwargs) -> Datalayer:
     # ------------------------------
     # Use the provided configuration or fall back to the default configuration.
     cfg = (cfg or s.CFG)(**kwargs)
-    databackend_obj = _build_databackend(cfg.databackend)
-    metadata_obj = _build_metadata(cfg.metadata_store or cfg.databackend)
-    artifact_store = _build_artifact_store(cfg.artifact_store or cfg.databackend)
-    compute = build_compute(cfg)
+    cfg = t.cast(Config, cfg)
+    databackend_obj = _build_databackend(cfg.data_backend)
+    metadata_obj = _build_metadata(cfg.metadata_store or cfg.data_backend)
+    artifact_store = _build_artifact_store(cfg.artifact_store or cfg.data_backend)
+    compute = _build_compute(cfg)
 
     datalayer = Datalayer(
         databackend=databackend_obj,

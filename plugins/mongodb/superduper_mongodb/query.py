@@ -7,7 +7,6 @@ from collections import defaultdict
 
 import pymongo
 from bson import ObjectId
-
 from superduper import CFG, logging
 from superduper.backends.base.query import (
     Query,

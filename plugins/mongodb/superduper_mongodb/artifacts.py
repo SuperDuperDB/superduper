@@ -4,11 +4,10 @@ from pathlib import Path
 
 import click
 import gridfs
-from tqdm import tqdm
-
 from superduper import CFG, logging
 from superduper.backends.base.artifacts import ArtifactStore
 from superduper.misc.colors import Colors
+from tqdm import tqdm
 
 
 class MongoArtifactStore(ArtifactStore):

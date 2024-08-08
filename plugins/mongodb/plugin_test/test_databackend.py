@@ -1,9 +1,9 @@
 from test.utils.database import databackend as db_utils
 
 import pytest
-
 from superduper import CFG
-from superduper.backends.mongodb.data_backend import MongoDataBackend
+
+from superduper_mongodb.data_backend import MongoDataBackend
 
 
 @pytest.fixture

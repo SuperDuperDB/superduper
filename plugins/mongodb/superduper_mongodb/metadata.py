@@ -2,7 +2,6 @@ import typing as t
 
 import click
 from pymongo.results import DeleteResult, InsertOneResult, UpdateResult
-
 from superduper import logging
 from superduper.backends.base.metadata import MetaDataStore
 from superduper.misc.colors import Colors

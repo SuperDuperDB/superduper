@@ -1,5 +1,4 @@
-# ruff: noqa: F401
+from .data_backend import IbisDataBackend as DataBackend
+from .query import IbisQuery
 
-from .field_types import dtype
-
-# from .query import Table
+__all__ = ["IbisQuery", "DataBackend"]
