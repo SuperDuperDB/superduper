@@ -1,1 +1,1 @@
-from superduper_torch.encoder import *
+from superduper_torch.encoder import *  # noqa

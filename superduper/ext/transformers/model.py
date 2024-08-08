@@ -1,1 +1,1 @@
-from superduper_transformers.model import *
+from superduper_transformers.model import *  # noqa

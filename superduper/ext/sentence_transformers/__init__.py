@@ -1,1 +1,1 @@
-from superduper_sentence_transformers import *
+from superduper_sentence_transformers import *  # noqa

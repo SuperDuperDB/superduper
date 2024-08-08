@@ -1,1 +1,1 @@
-from superduper_cohere.model import *
+from superduper_cohere.model import *  # noqa

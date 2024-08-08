@@ -3,11 +3,13 @@ import os
 import typing as t
 from warnings import warn
 
+import click
 import ibis
 import pandas
 from pandas.core.frame import DataFrame
 from sqlalchemy.exc import NoSuchTableError
 
+from superduper import CFG, logging
 from superduper.backends.base.data_backend import BaseDataBackend
 from superduper.backends.base.metadata import MetaDataStoreProxy
 from superduper.backends.ibis.db_helper import get_db_helper
@@ -129,9 +131,31 @@ class IbisDataBackend(BaseDataBackend):
             if self.conn.backend_table_type == DataFrame:
                 df.to_csv(os.path.join(self.name, table_name + '.csv'), index=False)
 
+    def check_ready_ids(
+        self, query: IbisQuery, keys: t.List[str], ids: t.Optional[t.List[t.Any]] = None
+    ):
+        """Check if all the keys are ready in the ids.
+
+        :param query: The query object.
+        :param keys: The keys to check.
+        :param ids: The ids to check.
+        """
+        if ids:
+            query = query.filter(query[query.primary_id].isin(ids))
+        conditions = []
+        for key in keys:
+            conditions.append(query[key].notnull())
+        docs = query.filter(*conditions).select(query.primary_id).execute()
+        ready_ids = [doc[query.primary_id] for doc in docs]
+        self._log_check_ready_ids_message(ids, ready_ids)
+        return ready_ids
+
     def drop_outputs(self):
         """Drop the outputs."""
-        raise NotImplementedError
+        for table in self.conn.list_tables():
+            logging.info(f"Dropping table: {table}")
+            if CFG.output_prefix in table:
+                self.conn.drop_table(table)
 
     def drop_table_or_collection(self, name: str):
         """Drop the table or collection.
@@ -167,10 +191,10 @@ class IbisDataBackend(BaseDataBackend):
         fields = {
             INPUT_KEY: dtype('string'),
             'id': dtype('string'),
-            f'_outputs.{predict_id}': output_type,
+            f'{CFG.output_prefix}{predict_id}': output_type,
         }
         return Table(
-            identifier=f'_outputs.{predict_id}',
+            identifier=f'{CFG.output_prefix}{predict_id}',
             schema=Schema(identifier=f'_schema/{predict_id}', fields=fields),
         )
 
@@ -180,7 +204,7 @@ class IbisDataBackend(BaseDataBackend):
         :param predict_id: The identifier of the prediction.
         """
         try:
-            self.conn.table(f'_outputs.{predict_id}')
+            self.conn.table(f'{CFG.output_prefix}{predict_id}')
             return True
         except (NoSuchTableError, ibis.IbisError):
             return False
@@ -203,6 +227,7 @@ class IbisDataBackend(BaseDataBackend):
                 t = self.conn.table(identifier)
             else:
                 raise e
+
         return t
 
     def drop(self, force: bool = False):
@@ -210,9 +235,13 @@ class IbisDataBackend(BaseDataBackend):
 
         :param force: Whether to force the drop.
         """
-        raise NotImplementedError(
-            "Dropping tables needs to be done in each DB natively"
-        )
+        if not force and not click.confirm("Are you sure you want to drop all tables?"):
+            logging.info("Aborting drop tables")
+            return
+
+        for table in self.conn.list_tables():
+            logging.info(f"Dropping table: {table}")
+            self.conn.drop_table(table)
 
     def get_table_or_collection(self, identifier):
         """Get a table or collection from the database.

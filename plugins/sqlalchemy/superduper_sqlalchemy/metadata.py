@@ -142,9 +142,20 @@ class SQLAlchemyMetadata(MetaDataStore):
                 default=False,
             ):
                 logging.warn('Aborting...')
-        self.job_table.drop(self.conn)
-        self.parent_child_association_table.drop(self.conn)
-        self.component_table.drop(self.conn)
+        try:
+            self.job_table.drop(self.conn)
+        except ProgrammingError as e:
+            logging.warn(f'Error dropping job table: {e}')
+
+        try:
+            self.parent_child_association_table.drop(self.conn)
+        except ProgrammingError as e:
+            logging.warn(f'Error dropping parent-child association table: {e}')
+
+        try:
+            self.component_table.drop(self.conn)
+        except ProgrammingError as e:
+            logging.warn(f'Error dropping component table {e}')
 
     @contextmanager
     def session_context(self):
@@ -412,7 +423,7 @@ class SQLAlchemyMetadata(MetaDataStore):
             )
             session.execute(stmt)
 
-    def show_components(self, type_id: t.Optional[str] = None):
+    def _show_components(self, type_id: t.Optional[str] = None):
         """Show all components in the database.
 
         :param type_id: the type of the component
@@ -422,15 +433,7 @@ class SQLAlchemyMetadata(MetaDataStore):
             if type_id is not None:
                 stmt = stmt.where(self.component_table.c.type_id == type_id)
             res = self.query_results(self.component_table, stmt, session)
-        if type_id is not None:
-            identifiers = [data['identifier'] for data in res]
-            identifiers = sorted(set(identifiers), key=lambda x: identifiers.index(x))
-            return identifiers
-        else:
-            return [
-                {'identifier': data['identifier'], 'type_id': data['type_id']}
-                for data in res
-            ]
+        return res
 
     def show_component_versions(self, type_id: str, identifier: str):
         """Show all versions of a component in the database.

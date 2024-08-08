@@ -1,1 +1,1 @@
-from superduper_sklearn.model import *
+from superduper_sklearn.model import *  # noqa

@@ -1,4 +1,3 @@
-import importlib
 import re
 
 from prettytable import PrettyTable
@@ -90,7 +89,6 @@ def build_compute(cfg):
 
     :param cfg: SuperDuper config.
     """
-
     plugin = load_plugin(cfg.cluster.compute.backend)
     queue_publisher = plugin.QueuePublisher(cfg.cluster.queue.uri)
     return plugin.ComputeBackend(cfg.cluster.compute.uri, queue=queue_publisher)

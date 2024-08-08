@@ -1,1 +1,1 @@
-from superduper_jina.model import *
+from superduper_jina.model import *  # noqa

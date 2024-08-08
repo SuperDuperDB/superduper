@@ -1,1 +1,1 @@
-from superduper_cohere import *
+from superduper_cohere import *  # noqa

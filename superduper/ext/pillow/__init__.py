@@ -1,1 +1,1 @@
-from superduper_pillow import *
+from superduper_pillow import *  # noqa

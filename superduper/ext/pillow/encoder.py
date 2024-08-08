@@ -1,1 +1,1 @@
-from superduper_pillow.encoder import *
+from superduper_pillow.encoder import *  # noqa

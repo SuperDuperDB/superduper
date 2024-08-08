@@ -1,11 +1,10 @@
-import copy
 import typing as t
 import uuid
 from collections import defaultdict
 
 import pandas
 
-from superduper import Document
+from superduper import CFG, Document
 from superduper.backends.base.query import (
     Query,
     applies_to,
@@ -83,13 +82,13 @@ def _model_update_impl(
     for output, source_id in zip(outputs, ids):
         d = {
             '_source': str(source_id),
-            f'_outputs.{predict_id}': output.x
+            f'{CFG.output_prefix}{predict_id}': output.x
             if isinstance(output, Encodable)
             else output,
             'id': str(uuid.uuid4()),
         }
         documents.append(Document(d))
-    return db[f'_outputs.{predict_id}'].insert(documents)
+    return db[f'{CFG.output_prefix}{predict_id}'].insert(documents)
 
 
 class IbisQuery(Query):
@@ -104,6 +103,12 @@ class IbisQuery(Query):
         'select': r'^[^\(]+\.select\(.*\)$',
         'join': r'^.*\.join\(.*\)$',
         'anti_join': r'^[^\(]+\.anti_join\(.*\)$',
+    }
+
+    # Use to control the behavior in the class construction method within LeafMeta
+    __dataclass_params__: t.ClassVar[t.Dict[str, t.Any]] = {
+        'eq': False,
+        'order': False,
     }
 
     @property
@@ -164,74 +169,6 @@ class IbisQuery(Query):
                     if isinstance(query, IbisQuery):
                         query.renamings(r)
         return r
-
-    def _execute_pre_like(self, parent):
-        assert self.parts[0][0] == 'like'
-        assert self.parts[1][0] in ['select']
-        similar_ids, similar_scores = self._prepare_pre_like(parent)
-
-        t = self.db[self.table]
-        filter_query = t.select_using_ids(similar_ids)
-        query = type(self)(
-            db=self.db,
-            table=self.table,
-            parts=[
-                *filter_query.parts,
-                *self.parts[1:],
-            ],
-        )
-        result = query.do_execute(db=self.db)
-        result.scores = similar_scores
-        return result
-
-    def __eq__(self, other):
-        return super().__eq__(other)
-
-    def __leq__(self, other):
-        return super().__leq__(other)
-
-    def __geq__(self, other):
-        return super().__geq__(other)
-
-    def _execute_post_like(self, parent):
-        pre_like_parts = []
-        like_part = []
-        like_part_index = 0
-        for i, part in enumerate(self.parts):
-            if not isinstance(part, str):
-                if part[0] == 'like':
-                    like_part = part
-                    like_part_index = i
-                    break
-            pre_like_parts.append(part)
-        post_like_parts = self.parts[like_part_index + 1 :]
-
-        like_args = like_part[1]
-        like_kwargs = like_part[2]
-        vector_index = like_kwargs['vector_index']
-        like = like_args[0] if like_args else like_kwargs['r']
-        if isinstance(like, Document):
-            like = like.unpack()
-        pre_like_query = IbisQuery(db=self.db, table=self.table, parts=pre_like_parts)
-        within_ids = [
-            r[self.primary_id] for r in pre_like_query.select_ids._execute(parent)
-        ]
-        similar_ids, similar_scores = self.db.select_nearest(
-            like, vector_index=vector_index, n=like_kwargs.get('n', 10), ids=within_ids
-        )
-        similar_scores = dict(zip(similar_ids, similar_scores))
-
-        t = self.db[pre_like_query._get_parent().get_name()]
-        filter_query = pre_like_query.filter(
-            getattr(t, self.primary_id).isin(similar_ids)
-        )
-
-        parts = filter_query.parts + post_like_parts
-
-        q = IbisQuery(db=self.db, table=self.table, parts=parts)
-        outputs = q._execute(parent)
-        outputs.scores = similar_scores
-        return outputs
 
     def _execute_select(self, parent):
         return self._execute(parent)
@@ -355,7 +292,7 @@ class IbisQuery(Query):
 
         :param predict_ids: The ids of the predictions to select.
         """
-        return self.db.databackend.conn.drop_table(f'_outputs.{predict_id}')
+        return self.db.databackend.conn.drop_table(f'{CFG.output_prefix}{predict_id}')
 
     @applies_to('select')
     def outputs(self, *predict_ids):
@@ -363,22 +300,19 @@ class IbisQuery(Query):
 
         :param predict_ids: The predict ids.
         """
-        find_args = ()
-        if self.parts:
-            find_args, _ = self.parts[0][1:]
-        find_args = copy.deepcopy(list(find_args))
-
-        if not find_args:
-            find_args = [{}]
-
-        if not find_args[1:]:
-            find_args.append({})
-
+        for part in self.parts:
+            if part[0] == 'select':
+                args = part[1]
+                assert (
+                    self.primary_id in args
+                ), f'Primary id: `{self.primary_id}` not in select when using outputs'
         query = self
         attr = getattr(query, self.primary_id)
         for identifier in predict_ids:
             identifier = (
-                identifier if '_outputs' in identifier else f'_outputs.{identifier}'
+                identifier
+                if identifier.startswith(CFG.output_prefix)
+                else f'{CFG.output_prefix}{identifier}'
             )
             symbol_table = self.db[identifier]
 
@@ -399,7 +333,7 @@ class IbisQuery(Query):
 
         assert isinstance(self.db, Datalayer)
 
-        output_table = self.db[f'_outputs.{predict_id}']
+        output_table = self.db[f'{CFG.output_prefix}{predict_id}']
         return self.anti_join(
             output_table,
             output_table._source == getattr(self, self.primary_id),
@@ -425,7 +359,12 @@ class IbisQuery(Query):
         :param kwargs: The keyword arguments to pass to the method.
         """
         assert isinstance(self.parts[-1], str)
-        if self.parts[-1] == 'select' and not args:
+        # TODO: Move to _execute
+        if (
+            self.parts[-1] == 'select'
+            and not args
+            and not self.table.startswith('<var:')
+        ):
             # support table.select() without column args
             table = self.db.databackend.get_table_or_collection(self.table)
             args = tuple(table.columns)

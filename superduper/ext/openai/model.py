@@ -1,1 +1,1 @@
-from superduper_openai.model import *
+from superduper_openai.model import *  # noqa

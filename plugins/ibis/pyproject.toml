@@ -3,7 +3,7 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "superduper_template"
+name = "superduper_ibis"
 readme = "README.md"
 license = {file = "LICENSE"}
 maintainers = [{name = "superduper.io, Inc.", email = "opensource@superduper.io"}]
@@ -27,7 +27,7 @@ documentation = "https://docs.superduper.com"
 source = "https://github.com/superduper.io/superduper/"
 
 [tool.setuptools.packages.find]
-include = ["superduper_template*"]
+include = ["superduper_ibis*"]
 
 [tool.setuptools.dynamic]
 version = {attr = "superduper.__version__"}
