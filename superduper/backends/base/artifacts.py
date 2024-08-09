@@ -17,16 +17,19 @@ class ArtifactStore(ABC):
 
     :param conn: connection to the meta-data store
     :param name: Name to identify DB using the connection
+    :param flavour: Flavour of the artifact store
     """
 
     def __init__(
         self,
         conn: t.Any,
         name: t.Optional[str] = None,
+        flavour: t.Optional[str] = None,
     ):
         self.name = name
         self.conn = conn
         self._serializers = None
+        self.flavour = flavour
 
     @property
     def serializers(self):

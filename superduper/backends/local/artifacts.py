@@ -16,15 +16,16 @@ class FileSystemArtifactStore(ArtifactStore):
 
     :param conn: root directory of the artifact store
     :param name: subdirectory to use for this artifact store
+    :param flavour: Flavour of the artifact store
     """
 
     def __init__(
         self,
         conn: t.Any,
         name: t.Optional[str] = None,
+        flavour: t.Optional[str] = None,
     ):
-        self.name = name
-        self.conn = conn
+        super().__init__(conn, name, flavour)
         if not os.path.exists(self.conn):
             logging.info('Creating artifact store directory')
             os.makedirs(self.conn, exist_ok=True)
