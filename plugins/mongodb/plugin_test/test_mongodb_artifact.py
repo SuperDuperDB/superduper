@@ -4,7 +4,6 @@ import os
 import typing as t
 
 import pytest
-
 from superduper import CFG
 from superduper.components.component import Component
 from superduper.components.datatype import (
@@ -12,7 +11,7 @@ from superduper.components.datatype import (
     file_serializer,
 )
 
-DO_SKIP = not CFG.data_backend.startswith("mongo")
+DO_SKIP = not CFG.data_backend.startswith("mongodb")
 
 
 @dc.dataclass(kw_only=True)
@@ -47,11 +46,11 @@ def random_directory(tmpdir):
 
 
 @pytest.mark.skipif(DO_SKIP, reason="skipping mongodb tests if not mongodb")
-def test_save_and_load_directory(test_db, random_directory):
+def test_save_and_load_directory(db, random_directory):
     # test save and load directory
     test_component = TestComponent(path=random_directory, identifier="test")
-    test_db.apply(test_component)
-    test_component_loaded = test_db.load("TestComponent", "test")
+    db.apply(test_component)
+    test_component_loaded = db.load("TestComponent", "test")
     test_component_loaded.init()
     # assert that the paths are different
     assert test_component.path != test_component_loaded.path
@@ -67,12 +66,13 @@ def test_save_and_load_directory(test_db, random_directory):
     # )
 
 
-def test_save_and_load_file(test_db):
+@pytest.mark.skipif(DO_SKIP, reason="skipping mongodb tests if not mongodb")
+def test_save_and_load_file(db):
     # test save and load file
     file = os.path.abspath(__file__)
     test_component = TestComponent(path=file, identifier="test")
-    test_db.apply(test_component)
-    test_component_loaded = test_db.load("TestComponent", "test")
+    db.apply(test_component)
+    test_component_loaded = db.load("TestComponent", "test")
     test_component_loaded.init()
     # assert that the paths are different
     assert test_component.path != test_component_loaded.path

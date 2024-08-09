@@ -1,4 +1,4 @@
-from superduper.ext.llamacpp.model import LlamaCpp, LlamaCppEmbedding
+from superduper_llamacpp.model import LlamaCpp, LlamaCppEmbedding
 
 
 class _MockedLlama:

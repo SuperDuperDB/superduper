@@ -4,7 +4,6 @@ import PIL.Image
 import pytest
 import torch.nn
 import torchvision
-
 from superduper import CFG
 from superduper.backends.ibis.field_types import dtype
 from superduper.base.document import Document as D

@@ -6,10 +6,10 @@ import pytest
 from sklearn.base import TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVC
-
 from superduper.backends.base.query import Query
 from superduper.base.document import Document
-from superduper.ext.sklearn.model import Estimator, SklearnTrainer
+
+from superduper_sklearn.model import Estimator, SklearnTrainer
 
 
 class Lookup(TransformerMixin):
@@ -81,3 +81,16 @@ def test_encode_and_decode():
     assert decode_model.trainer.identifier == "my-trainer"
     assert decode_model.trainer.key == ("X", "y")
     assert decode_model.trainer.select.table == "document"
+
+def test_sklearn(db):
+    m = Estimator(
+        identifier='test',
+        object=SVC(),
+    )
+    assert 'object' in m.artifact_schema.fields
+    db.apply(m)
+    assert db.show('model') == ['test']
+
+    reloaded = db.load(type_id='model', identifier='test')
+    reloaded.init()
+    assert isinstance(reloaded.object, SVC)

@@ -1,10 +1,8 @@
 import random
 import warnings
 
-import lorem
 import pymongo
 import pytest
-
 import superduper as s
 from superduper import CFG, superduper
 from superduper.backends.mongodb.query import MongoQuery
@@ -60,6 +58,7 @@ def test_setup_atlas_vector_search(atlas_search_config):
 
     assert not vector_indexes
 
+    import lorem
     db.execute(
         collection.insert_many(
             [Document({'text': lorem.sentence()}) for _ in range(50)]
